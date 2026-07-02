@@ -1,0 +1,31 @@
+# data / models / runs — never commit weights or benchmark dumps
+data/
+runs/
+saves/
+results/
+logs/
+*.jsonl
+*.json.gz
+*.bin
+*.safetensors
+*.pt
+*.ckpt
+wandb/
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+env/
+
+# editor / os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# allow small example configs and the tiny fixtures used by tests
+!tests/fixtures/*.json

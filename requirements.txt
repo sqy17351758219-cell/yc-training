@@ -1,0 +1,15 @@
+# Pinned to the cluster environment (conda env: claude).
+# fp32 training of DeepSeek-R1-Distill-Qwen-7B on 8x141GB.
+torch==2.6.0
+transformers==4.52.4
+trl==0.19.1
+deepspeed>=0.14.0
+accelerate>=1.0.0
+datasets>=2.19.0
+peft>=0.11.0            # not used by default (full FT), kept for optional LoRA probes
+numpy>=1.24
+pyyaml>=6.0
+tqdm>=4.66
+sentencepiece
+# optional: embeddings for archive dedup (falls back to hashing if absent)
+scikit-learn>=1.3

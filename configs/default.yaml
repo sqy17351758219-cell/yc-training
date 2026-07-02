@@ -1,0 +1,68 @@
+# Default hyperparameters for ABRR / DRACO recovery RL.
+# Every field is overridable on the CLI (see scripts/*.py --help).
+
+model:
+  sft_ckpt: saves/advchain-v3-r1-distill-qwen-7b   # already-trained AdvChain SFT model
+  dtype: float32                                   # fp32 REQUIRED (bf16 -> NaN on R1-distill)
+  max_len: 8192
+
+judges:
+  safety_judge: meta-llama/Llama-Guard-3-8B        # ASR judge; also per-checkpoint Phi in [A]
+  orr_classifier: Qwen/Qwen2.5-7B-Instruct         # XSTest 3-way over-refusal classifier
+
+# ---- Stage 2: recovery RL ----
+rl:
+  rounds: 1
+  steps_per_round: 80
+  per_side_limit: 256
+  num_generations: 8              # GRPO group size
+  per_device_train_batch_size: 4
+  max_completion_length: 1024
+  beta: 0.04                      # KL to pi_SFT
+  lr: 1.0e-6
+  grad_ckpt: true
+
+# ---- Component 1: constraint controller (lambda) ----
+lambda_ctrl:
+  tau: 0.04                       # target ORR ceiling (base-model level)
+  eta: 0.05                       # dual step size
+  lam_init: 1.0                   # lam=1 -> 0.5 harmful ratio (current default)
+  lam_min: 0.05
+  lam_max: 20.0
+  ema: 0.9                        # EMA smoothing of batch ORR estimate
+  pb_clamp: [0.2, 0.8]            # clamp benign-state ratio to avoid starving a side
+
+# ---- Deepening B: CVaR worst-tail attacker ----
+attacker:
+  n_probe: 3
+  max_candidates: 10
+  cvar_alpha: 0.3                 # keep worst 30% tail; 1.0 -> argmin, ->1 random
+  depths: [0.25, 0.5, 0.75, 0.9]
+  softmax_temp: 1.0               # weighting within the tail
+
+# ---- Deepening A: trajectory-dense recovery reward ----
+reward:
+  alpha_traj: 0.3                 # weight on mean checkpoint safety (harmful side)
+  n_checkpoints: 4                # sentence-boundary guard probes per completion
+  # benign side stays 1 - refusal (see rewards.py)
+
+# ---- Deepening G: self-mined drift archive ----
+archive:
+  enable_selfmine: true
+  theta_flip: 0.5                 # pivot: first checkpoint with P(safe) < theta_flip
+  flip_hysteresis: 2             # require this many consecutive low checkpoints
+  dedup_cos: 0.9                  # drop mined drift if cos-sim to existing > this
+  ucb_c: 1.4                      # exploration constant for UCB drift sampling
+  elite_frac: 0.5                 # fictitious-play: fraction sampled from historical elites
+  enable_mutate: false            # Component 2 (LLM mutation) — extension slot, off by default
+
+# ---- launch ----
+launch:
+  nproc: 8                        # 8x141GB
+  deepspeed_config: configs/ds_zero3.json
+  eval_num_shards: 8
+  eval_max_new_tokens: 4096       # REQUIRED: shorter truncates R1 reasoning -> inflated ASR
+
+paths:
+  out_dir: runs/abrr
+  data_dir: data
